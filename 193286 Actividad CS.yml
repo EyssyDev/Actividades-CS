@@ -1,0 +1,426 @@
+#Ejecutar esto primero, luego posicionate en el nuevo namespace para ejecutar el resto...
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: second-namespace
+
+---
+#POSTGRES
+# Volumen persistente
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-ivan-volpostgres
+spec:
+  storageClassName: ivan-postgres
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/ivan-postgres"
+
+---
+# Volumen persistente de reclamo
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-ivan-postgres
+spec:
+  storageClassName: ivan-postgres
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Storage class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ivan-postgres
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment2
+  namespace: second-namespace
+  labels:
+    app: postgres-server
+spec:
+  selector:
+    matchLabels:
+      app: postgres-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgres-server
+    spec:
+      containers:
+        - image: postgres:11
+          name: postgres-db2
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /var/lib/postgresql2/data
+              name: postgres-db-volume2
+            envFrom:
+              - configMapRef:
+                  name: postgres-config-ivan
+      volumes:
+      - name: postgres-db-volume2
+        persistentVolumeClaim:
+          claimName: pvc-ivan-postgres
+
+---
+# Servicio
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-postgres
+  namespace: second-namespace
+  labels:
+    app: postgres-server
+spec:
+  selector:
+    app: postgres-server
+  ports:
+    - port: 5300
+      targetPort: 5432
+  type: LoadBalancer
+
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config-ivan
+  labels:
+    app: postgres-server
+data:
+  POSTGRES_USER: root
+  POSTGRES_PASSWORD: secret
+
+---
+#REDIS
+# Volumen persistente
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-ivan-volredis
+spec:
+  storageClassName: ivan-redis
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/ivan-redis"
+
+---
+# Volumen persistente de reclamo
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-ivan-redis
+spec:
+  storageClassName: ivan-redis
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Storage class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ivan-redis
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: second-namespace
+  labels:
+    app: redis-server
+spec:
+  selector:
+    matchLabels:
+      app: redis-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: redis-server
+    spec:
+      containers:
+        - image: redis:6.2.0
+          name: redis-db1
+          ports:
+            - containerPort: 6379
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /redis-master-data
+              name: redis-db-volume
+          envFrom:
+            - configMapRef:
+                name: redis-config-ivan
+      volumes:
+      - name: redis-db-volume
+        persistentVolumeClaim:
+          claimName: pvc-ivan-redis
+
+---
+# Servicio
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-redis
+  namespace: second-namespace
+  labels:
+    app: redis-server
+spec:
+  selector:
+    app: redis-server
+  ports:
+    - port: 5301
+      targetPort: 6379
+  type: LoadBalancer
+
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config-ivan
+  labels:
+    app: redis-server
+data:
+  REDIS_USER: root
+  REDIS_PASSWORD: secret
+
+---
+#MONGO
+# Volumen persistente
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-ivan-volmongo
+spec:
+  storageClassName: ivan-mongo
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/ivan-mongo"
+
+---
+# Volumen persistente de reclamo
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-ivan-mongo
+spec:
+  storageClassName: ivan-mongo
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Storage class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ivan-mongo
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+  namespace: second-namespace
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    matchLabels:
+      app: mongo-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mongo-server
+    spec:
+      containers:
+        - image: mongo:4.0.23
+          name: mongo-db1
+          ports:
+            - containerPort: 27017
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /data/db
+              name: mongo-db-volume
+          envFrom:
+            - configMapRef:
+                name: mongo-config-ivan
+      volumes:
+        - name: mongo-db-volume
+          persistentVolumeClaim:
+            claimName: pvc-ivan-mongo
+
+---
+# Servicio
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-mongo
+  namespace: second-namespace
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    app: mongo-server
+  ports:
+    - port: 5302
+      targetPort: 27017
+  type: LoadBalancer
+
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-config-ivan
+  labels:
+    app: mongo-server
+data:
+  MONGO_USER: root
+  MONGO_PASSWORD: secret
+
+---
+#MYSQL
+# Volumen persistente
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-ivan-volmysql
+spec:
+  storageClassName: ivan-mysql
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/mysql-vol"
+
+---
+# Volumen persistente de reclamo
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-ivan-mysql
+spec:
+  storageClassName: ivan-mysql
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Storage class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ivan-mysql
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+  namespace: second-namespace
+  labels:
+    app: mysql-server
+spec:
+  selector:
+    matchLabels:
+      app: mysql-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql-server
+    spec:
+      containers:
+        - image: mysql:8.0
+          name: mysql-db1
+          ports:
+            - containerPort: 3306
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: mysql-db-volume
+          envFrom:
+            - configMapRef:
+                name: mysql-config-ivan
+      volumes:
+        - name: mysql-db-volume
+          persistentVolumeClaim:
+            claimName: pvc-ivan-mysql
+
+---
+# Servicio
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-mysql
+  namespace: second-namespace
+  labels:
+    app: mysql-server
+spec:
+  selector:
+    app: mysql-server
+  ports:
+    - port: 5303
+      targetPort: 3306
+  type: LoadBalancer
+
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config-ivan
+  labels:
+    app: mysql-server
+data:
+  MYSQL_ROOT_PASSWORD: secret
+
+#Eyssy Ivan Hernandez Sanchez, 193286
